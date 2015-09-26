@@ -1,0 +1,102 @@
+#!/bin/bash
+
+
+
+# Specify data base schemas to backup and credentials
+
+## Add Database names into DATABASES array below in a
+
+## space separated list
+
+DATABASES="ojs"
+
+
+
+## Syntax databasename as per above _USER and _PW
+
+ojs_USER=XXXX
+
+ojs_PW=YYYY
+
+#myotherdb_USER=username
+
+#myotherdb_PW=password
+
+
+
+## Specify directories to backup (it's clever to use relaive paths)
+
+## Add directories paths into DIRECTORIES array below in a
+
+## space separated list
+
+DIRECTORIES="home/bitnami/scripts etc/crontab home/bitnami/stack/apache2/files”
+
+
+
+## Initialize some variables
+
+DATE=$(date +%d)
+
+BACKUP_DIRECTORY=/tmp/backups
+
+S3_CMD="s3cmd"
+
+
+
+## Specify where the backups should be placed
+
+S3_BUCKET_URL=
+
+
+
+## The script
+
+cd /
+
+mkdir -p $BACKUP_DIRECTORY
+
+rm -rf $BACKUP_DIRECTORY/*
+
+
+
+## Backup MySQL:s
+
+for DB in $DATABASES
+
+do
+
+BACKUP_FILE=$BACKUP_DIRECTORY/${DB}.sql
+
+USER=$(eval echo \$${DB}_USER)
+
+PASSWORD=$(eval echo \$${DB}_PW)
+
+/opt/bitnami/mysql/bin/mysqldump -v -u $USER --password=$PASSWORD -h localhost $
+
+gzip $BACKUP_FILE 2>&1
+
+$S3_CMD put ${BACKUP_FILE}.gz $S3_BUCKET_URL 2>&1
+
+done
+
+
+
+## Backup of config directories
+
+for DIR in $DIRECTORIES
+
+do
+
+BACKUP_FILE=$BACKUP_DIRECTORY/$(echo $DIR | sed 's/\//-/g').tgz
+
+tar zcvf ${BACKUP_FILE} $DIR 2>&1
+
+$S3_CMD put ${BACKUP_FILE} $S3_BUCKET_URL 2>&1
+
+done
+
+rm -rf $BACKUP_DIRECTORY/*
+
+
+
